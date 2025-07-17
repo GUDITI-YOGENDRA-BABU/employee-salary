@@ -11,11 +11,13 @@ except FileNotFoundError:
     st.stop()
 
 # --- Define options for categorical features based on your data ---
-# REPLACE THESE LISTS WITH THE ACTUAL UNIQUE VALUES FROM YOUR PROCESSED DATA
-# (After filtering, but BEFORE Label Encoding in your original script).
-# Use data['column_name'].unique().tolist() from your training script to get accurate lists.
+# These lists MUST accurately reflect the unique values from your training data
+# *after* initial filtering but *before* Label Encoding.
+# You can get these by running your training script and printing data['column_name'].unique().tolist()
 workclass_options = ['Private', 'Self-emp-not-inc', 'Local-gov', 'NOT LISTED',
                      'State-gov', 'Federal-gov', 'Self-emp-inc']
+education_options = ['HS-grad', 'Some-college', 'Bachelors', 'Masters', 'Assoc-voc',
+                     '11th', 'Assoc-acdm', '10th', 'Doctorate', 'Prof-school', '12th'] # Added education options
 marital_status_options = ['Married-civ-spouse', 'Never-married', 'Divorced',
                           'Separated', 'Widowed', 'Married-spouse-absent']
 occupation_options = ['Prof-specialty', 'Craft-repair', 'Exec-managerial', 'Adm-clerical',
@@ -36,18 +38,13 @@ native_country_options = ['United-States', 'Mexico', 'Philippines', 'Germany', '
 # It's crucial this mapping is consistent with your training data's encoding
 def encode_categorical_input(df):
     encoded_df = df.copy()
-    
-    # It's safer to use a consistent encoder. Since LabelEncoder assigns based on sort order
-    # of unique values, we recreate that here.
-    # A more robust solution would be to save the fitted LabelEncoders.
-    
+
     # Map options to their expected integer labels based on your training script's LabelEncoder behavior
     # Assuming `LabelEncoder` sorts categories alphabetically for integer assignment.
-    # You might need to verify the exact integer mapping by inspecting your training script's output
-    # or by saving the LabelEncoder objects.
-
+    # It's highly recommended to save/load the fitted LabelEncoder objects for production.
     le_mappings = {
         'workclass': {val: i for i, val in enumerate(sorted(workclass_options))},
+        'education': {val: i for i, val in enumerate(sorted(education_options))}, # Added education mapping
         'marital-status': {val: i for i, val in enumerate(sorted(marital_status_options))},
         'occupation': {val: i for i, val in enumerate(sorted(occupation_options))},
         'relationship': {val: i for i, val in enumerate(sorted(relationship_options))},
@@ -57,18 +54,21 @@ def encode_categorical_input(df):
     }
 
     for col, mapping in le_mappings.items():
-        encoded_df[col] = encoded_df[col].map(mapping)
-        # Handle potential unseen categories by mapping to a default (e.g., -1 or 0, depending on model)
-        # Or raise an error. For now, we'll map to NaN and then handle.
-        if encoded_df[col].isnull().any():
-            st.warning(f"Unseen category detected in '{col}'. This might affect prediction.")
-            encoded_df[col] = encoded_df[col].fillna(0) # Default to 0 for unseen
+        if col in encoded_df.columns: # Check if column exists in input_data
+            encoded_df[col] = encoded_df[col].map(mapping)
+            # Handle potential unseen categories by mapping to a default (e.g., 0)
+            if encoded_df[col].isnull().any():
+                st.warning(f"Unseen category detected in '{col}'. Defaulting to 0. This might affect prediction.")
+                encoded_df[col] = encoded_df[col].fillna(0)
+        else:
+            # If a categorical column expected by mapping is missing from input_data,
+            # add it and fill with a default (e.g., 0)
+            encoded_df[col] = 0 # Or a more appropriate default based on your data
 
     # Apply the additional numerical filters from your training script AFTER encoding
-    # This is unusual for a live app input, as it implies input should already be within these ranges.
-    # Consider if these filters are truly necessary for new input or were just for training data cleaning.
-    # For robust apps, you'd rather raise an error for out-of-range encoded values.
-    # For now, we'll include them as per your training script.
+    # These filters are applied to the *encoded* numerical values.
+    # Be cautious with these filters in a live app, as they might filter out valid user inputs
+    # if the encoded values fall outside these specific ranges.
     encoded_df = encoded_df[(encoded_df['workclass'] <=5)&(encoded_df['workclass'] >=1)]
     encoded_df = encoded_df[(encoded_df['marital-status'] <=5)&(encoded_df['marital-status'] >=1)]
     encoded_df = encoded_df[(encoded_df['native-country'] <=35)&(encoded_df['native-country'] >=5)]
@@ -87,10 +87,10 @@ col1, col2, col3 = st.columns(3)
 with col1:
     age = st.slider("Age", 20, 70, 35)
     workclass = st.selectbox("Workclass", workclass_options)
-    fnlwgt = st.number_input("Final Weight (fnlwgt)", min_value=10000, max_value=1500000, value=200000)
+    fnlwgt = st.number_input("Final Weight (fnlwgt)", min_value=10000, max_value=1500000, value=200000, step=10000)
 
 with col2:
-    education_num = st.slider("Education Num", 1, 16, 10)
+    education = st.selectbox("Education", education_options) # Changed from education_num to education
     marital_status = st.selectbox("Marital Status", marital_status_options)
     occupation = st.selectbox("Occupation", occupation_options)
 
@@ -104,26 +104,26 @@ st.header("Financial & Work Details")
 col4, col5 = st.columns(2)
 
 with col4:
-    capital_gain = st.number_input("Capital Gain", min_value=0, value=0)
-    capital_loss = st.number_input("Capital Loss", min_value=0, value=0)
+    capital_gain = st.number_input("Capital Gain", min_value=0, value=0, step=100)
+    capital_loss = st.number_input("Capital Loss", min_value=0, value=0, step=100)
 
 with col5:
     hours_per_week = st.slider("Hours Per Week", 1, 99, 40)
     native_country = st.selectbox("Native Country", native_country_options)
 
-# Create DataFrame from user inputs
+# Create DataFrame from user inputs - ALL FEATURES MUST BE PRESENT
 input_data = pd.DataFrame([{
     'age': age,
     'workclass': workclass,
-    'fnlwgt': fnlwgt,
-    'education-num': education_num,
+    'fnlwgt': fnlwgt, # Added
+    'education': education, # Changed from education-num to education
     'marital-status': marital_status,
     'occupation': occupation,
-    'relationship': relationship,
-    'race': race,
+    'relationship': relationship, # Added
+    'race': race, # Added
     'gender': gender,
-    'capital-gain': capital_gain,
-    'capital-loss': capital_loss,
+    'capital-gain': capital_gain, # Added
+    'capital-loss': capital_loss, # Added
     'hours-per-week': hours_per_week,
     'native-country': native_country
 }])
@@ -131,10 +131,11 @@ input_data = pd.DataFrame([{
 # Encode categorical features for the input data
 processed_input = encode_categorical_input(input_data.copy())
 
-# Define the exact feature order as used during training (after dropping 'income')
-# This must match the order of 'x' in your training script after all preprocessing
+# Define the exact feature order as used during training (after dropping 'income' and 'educational-num')
+# This must match the order of 'x' in your training script after all preprocessing.
+# Based on your training script, the columns in 'x' after dropping 'educational-num' are:
 feature_order = [
-    'age', 'workclass', 'fnlwgt', 'education-num', 'marital-status',
+    'age', 'workclass', 'fnlwgt', 'education', 'marital-status',
     'occupation', 'relationship', 'race', 'gender', 'capital-gain',
     'capital-loss', 'hours-per-week', 'native-country'
 ]
