@@ -36,7 +36,7 @@ input_df = pd.DataFrame({
     'experience': [experience]
 })
 
-st.write("### 🔎 Input Data")
+st.write("Input DataFrame being passed to model:")
 st.write(input_df)
 
 # Predict button
