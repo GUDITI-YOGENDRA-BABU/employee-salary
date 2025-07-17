@@ -1,7 +1,7 @@
 #employee salary predication using adult csv
 #load your libarary
 import pandas as pd
-data=pd.read_csv(r"C:\Users\gudit\Downloads\RECOVER\adult 3.csv")
+data=pd.read_csv(r"adult 3.csv")
 print(data.occupation.value_counts())
 data.occupation=data.occupation.replace({'?':'others'})
 data.workclass=data.workclass.replace({'?':'NOT LISTED'})
