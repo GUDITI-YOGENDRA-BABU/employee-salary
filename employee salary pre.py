@@ -21,6 +21,7 @@ data=data[data['native-country']!='Honduras']
 data=data[data['native-country']!='Laos']
 data=data[data['marital-status']!='Scotland']
 data=data[data['marital-status']!='Yugoslavia']
+print(data)
 print(data.occupation.value_counts())
 print(data.workclass.value_counts())
 print(data.education.value_counts())
@@ -28,11 +29,13 @@ print(data.race.value_counts())
 print(data.gender.value_counts())
 print(data['marital-status'].value_counts())
 print(data['native-country'].value_counts())
-data.drop(columns=['education'],inplace=True)
+data.drop(columns=['educational-num'],inplace=True)
+print(data)
 data=data[(data['age']<=70)&(data['age']>=20)]
 from sklearn.preprocessing import LabelEncoder
 encoder=LabelEncoder()
 data['workclass']=encoder.fit_transform(data['workclass'])
+data['education']=encoder.fit_transform(data['education'])
 data['marital-status']=encoder.fit_transform(data['marital-status'])
 data['occupation']=encoder.fit_transform(data['occupation'])
 data['relationship']=encoder.fit_transform(data['relationship'])
